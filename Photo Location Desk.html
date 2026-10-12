@@ -1,0 +1,875 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Photo Location Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;800&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:inherit}
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --paper:#EEF2F0; --card:#F8FAF9; --ink:#14262C; --muted:#586C71; --line:#CBD8D5;
+  --teal:#1F6F78; --on-teal:#FFFFFF; --teal-soft:#D5E7E6; --amber:#C98A0B; --amber-soft:#F6E7BF; --red:#B04A32;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0F1B1F; --card:#16262B; --ink:#E4EEEC; --muted:#8FA6AB; --line:#27404A;
+    --teal:#5CC0C9; --on-teal:#08262B; --teal-soft:#1C3A40; --amber:#F0B73A; --amber-soft:#3A3010; --red:#E27B62;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0F1B1F; --card:#16262B; --ink:#E4EEEC; --muted:#8FA6AB; --line:#27404A;
+  --teal:#5CC0C9; --on-teal:#08262B; --teal-soft:#1C3A40; --amber:#F0B73A; --amber-soft:#3A3010; --red:#E27B62;
+}
+html{background:var(--paper);scroll-padding-top:calc(env(safe-area-inset-top,0px) + 88px);height:100%}
+body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);font:400 16px/1.5 "Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+h1,h2,.big{font-family:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);border-bottom:1px solid var(--line);
+  padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bar h1{font-size:17px;line-height:1.15;margin:0;font-weight:800;letter-spacing:-.01em;max-width:11ch}
+.count{display:flex;align-items:center;gap:10px}
+.big{font-size:44px;line-height:1;font-weight:800;letter-spacing:-.03em;color:var(--teal);font-variant-numeric:tabular-nums}
+.of{font-size:13px;line-height:1.25;color:var(--muted)}
+@media (prefers-reduced-motion: no-preference){
+  .big.bump{animation:bump .35s ease-out}
+  @keyframes bump{0%{transform:translateY(6px);opacity:.3}100%{transform:none;opacity:1}}
+}
+
+main{max-width:720px;margin:0 auto;padding:18px 16px 56px}
+.intro{margin:0 0 22px;color:var(--muted);max-width:62ch}
+
+.step{position:relative;padding-left:46px;padding-bottom:30px}
+.step::before{content:"";position:absolute;left:15px;top:38px;bottom:4px;width:2px;background:var(--line)}
+.step:last-of-type::before{display:none}
+.n{position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:var(--teal);color:var(--on-teal);
+  font:800 15px/1 "Archivo",system-ui,sans-serif;display:grid;place-items:center}
+.step h2{font-size:20px;line-height:1.2;font-weight:800;margin:4px 0 4px;letter-spacing:-.01em}
+.hint{color:var(--muted);font-size:14px;margin:0 0 12px;max-width:60ch}
+.hint.small{font-size:13px;margin:10px 0 0}
+
+.btn{font:600 15px/1.2 "Public Sans",system-ui,sans-serif;min-height:44px;padding:11px 16px;border-radius:8px;border:1.5px solid var(--teal);
+  background:var(--teal);color:var(--on-teal);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.btn:hover{filter:brightness(1.08)}
+.btn.alt{background:transparent;color:var(--teal)}
+.btn[disabled]{opacity:.45;cursor:not-allowed;filter:none}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.sr:focus-visible + label.btn{outline:3px solid var(--amber);outline-offset:2px}
+
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.preview{display:block;max-width:100%;max-height:300px;border-radius:6px;margin:0 auto}
+.fileinfo{font-size:13px;color:var(--muted);margin:8px 0 0}
+
+dl.meta{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px}
+dl.meta dt{color:var(--muted)}
+dl.meta dd{margin:0;word-break:break-word;font-variant-numeric:tabular-nums}
+.note{margin:10px 0 0;padding:9px 12px;border-left:4px solid var(--amber);background:var(--amber-soft);border-radius:0 6px 6px 0;font-size:14px}
+.note.bad{border-left-color:var(--red)}
+
+fieldset{border:0;margin:0 0 16px;padding:0}
+legend{font-weight:600;font-size:15px;padding:0;margin-bottom:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:500 14px/1.2 "Public Sans",system-ui,sans-serif;min-height:40px;padding:8px 14px;border-radius:99px;border:1.5px solid var(--line);
+  background:transparent;color:var(--ink);cursor:pointer}
+.chip:hover{border-color:var(--teal)}
+.chip[aria-pressed="true"]{background:var(--teal-soft);border-color:var(--teal);font-weight:600}
+
+.ask{margin-bottom:18px}
+.status{font-size:14px;color:var(--muted);margin:8px 0 0}
+ul.obs{margin:10px 0 0;padding-left:18px;font-size:14px}
+ul.obs li{margin:4px 0}
+ul.obs em{color:var(--muted);font-style:normal}
+
+.rank{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.row{width:100%;display:grid;grid-template-columns:minmax(96px,128px) 1fr 46px;gap:10px;align-items:center;text-align:left;
+  background:transparent;border:0;border-left:4px solid transparent;color:var(--ink);font:inherit;font-size:14px;padding:7px 6px;min-height:40px;cursor:pointer;border-radius:0 6px 6px 0}
+.row:hover{background:var(--teal-soft)}
+.row.sel{border-left-color:var(--amber);background:var(--amber-soft)}
+.row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .tag{font-size:11px;font-weight:600;color:var(--amber);margin-left:6px}
+.track{height:10px;background:var(--line);border-radius:5px;overflow:hidden}
+.fill{height:100%;background:var(--teal);border-radius:5px}
+.row .pc{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+
+label.f{display:block;font-size:13px;color:var(--muted);margin:0 0 4px}
+input[type=text],input[type=number],input[type=date],select,textarea{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--paper);
+  border:1.5px solid var(--line);border-radius:8px;padding:10px 12px;min-height:44px}
+textarea{min-height:120px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+
+.sunout{display:grid;grid-template-columns:1fr 150px;gap:14px;align-items:center;margin-top:14px}
+@media (max-width:420px){.sunout{grid-template-columns:1fr}.dial{justify-self:center}}
+.hits{display:grid;gap:6px}
+.hit{text-align:left;font:inherit;font-size:14px;color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer;min-height:44px}
+.hit[aria-pressed="true"]{border-color:var(--amber);background:var(--amber-soft)}
+.hit b{font-variant-numeric:tabular-nums}
+.dial{width:150px;height:150px}
+.dial .ring{fill:none;stroke:var(--line);stroke-width:2}
+.dial text{fill:var(--muted);font:600 11px "Public Sans",system-ui,sans-serif;text-anchor:middle}
+.dial .needle{stroke:var(--teal);stroke-width:4;stroke-linecap:round}
+.dial .tip{fill:var(--amber)}
+.dial .hub{fill:var(--ink)}
+@media (prefers-reduced-motion: no-preference){.dial #needle{transition:transform .4s ease}}
+
+.links{display:grid;gap:14px}
+.links h3{font:600 15px "Public Sans",system-ui,sans-serif;margin:0 0 6px}
+pre.q,pre.report{white-space:pre-wrap;word-break:break-word;margin:10px 0 0;padding:12px;background:var(--card);border:1px solid var(--line);border-radius:8px;
+  font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--ink);max-height:360px;overflow:auto}
+.foot{margin-top:6px;font-size:13px;color:var(--muted);max-width:62ch;border-top:1px solid var(--line);padding-top:14px}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1>Photo Location Desk</h1>
+  <div class="count" aria-live="polite">
+    <span class="big" id="left">57</span>
+    <span class="of">of <span id="total">57</span> countries<br>still possible</span>
+  </div>
+</header>
+
+<main>
+  <p class="intro">Add a photo, note what you can see, and watch the list of possible countries shrink. Your photo stays in your browser. The optional Claude step sends it only when you tap that button.</p>
+
+  <section class="step" id="s1">
+    <span class="n">1</span>
+    <h2>Add the photo</h2>
+    <p class="hint">Use your own photo or one you have permission to analyze. Original files keep more metadata than screenshots or chat-app copies.</p>
+    <input class="sr" type="file" id="file" accept="image/*,.heic,.heif">
+    <label class="btn" for="file" id="fileBtn">Choose photo</label>
+    <div id="previewWrap" hidden style="margin-top:12px">
+      <div class="panel"><img id="preview" class="preview" alt="The photo you chose"></div>
+      <p class="fileinfo" id="fileinfo"></p>
+    </div>
+  </section>
+
+  <section class="step" id="s2">
+    <span class="n">2</span>
+    <h2>Check hidden metadata</h2>
+    <p class="hint">GPS, capture time, camera and editing software can be stored inside the file.</p>
+    <div id="metaEmpty" class="hint">Choose a photo to read its metadata.</div>
+    <div id="metaBox" hidden>
+      <div class="panel"><dl class="meta" id="metaList"></dl></div>
+      <div id="metaNote"></div>
+      <div class="btns" id="gpsLinks" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <section class="step" id="s3">
+    <span class="n">3</span>
+    <h2>Note the visual clues</h2>
+    <p class="hint">Tap everything you can read or recognise. Skip what you are unsure about.</p>
+
+    <div class="ask panel" id="askBox" hidden>
+      <div class="btns">
+        <button class="btn" type="button" id="askBtn" disabled>Read clues with Claude</button>
+        <button class="btn alt" type="button" id="stopBtn" hidden>Stop</button>
+      </div>
+      <p class="status" id="askStatus">Choose a photo first. This sends the photo to Claude using your own Claude account.</p>
+      <ul class="obs" id="obs"></ul>
+      <p class="hint small" id="caveat" hidden></p>
+    </div>
+
+    <fieldset>
+      <legend>Which side of the road do cars drive on?</legend>
+      <div class="chips" id="sideChips"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Writing you can read</legend>
+      <div class="chips" id="scriptChips"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Landscape and climate</legend>
+      <div class="chips" id="landChips"></div>
+    </fieldset>
+  </section>
+
+  <section class="step" id="s4">
+    <span class="n">4</span>
+    <h2>See the shortlist</h2>
+    <p class="hint">Tap a country to work on it in the next steps. Share is a relative weighting, not a probability.</p>
+    <p class="hint" id="rankHint">Add a clue above and the list will narrow.</p>
+    <ul class="rank" id="rank"></ul>
+    <div class="btns" style="margin-top:10px"><button class="btn alt" type="button" id="moreBtn" hidden>Show all countries</button></div>
+  </section>
+
+  <section class="step" id="s5">
+    <span class="n">5</span>
+    <h2>Use the shadows</h2>
+    <p class="hint">Measure a vertical object and its shadow on flat ground in the photo (any unit, same for both). The tool finds the local times when the sun was that high and which way the shadow pointed.</p>
+    <div class="grid2">
+      <div><label class="f" for="sh">Object height</label><input id="sh" type="number" inputmode="decimal" step="any" min="0" placeholder="e.g. 2"></div>
+      <div><label class="f" for="ss">Shadow length</label><input id="ss" type="number" inputmode="decimal" step="any" min="0" placeholder="e.g. 1.4"></div>
+      <div><label class="f" for="sla">Latitude (north is +)</label><input id="sla" type="number" inputmode="decimal" step="any" placeholder="e.g. 22.5"></div>
+      <div><label class="f" for="slo">Longitude (east is +)</label><input id="slo" type="number" inputmode="decimal" step="any" placeholder="e.g. 79"></div>
+      <div><label class="f" for="sd">Date of the photo</label><input id="sd" type="date"></div>
+      <div><label class="f" for="so">Local time zone (hours from UTC)</label><input id="so" type="number" inputmode="decimal" step="0.5" placeholder="India is 5.5"></div>
+    </div>
+    <div class="btns">
+      <button class="btn" type="button" id="sunBtn">Find times</button>
+      <button class="btn alt" type="button" id="centreBtn">Use shortlist country centre</button>
+    </div>
+    <div id="sunMsg"></div>
+    <div class="sunout" id="sunOut" hidden>
+      <div class="hits" id="hits"></div>
+      <svg class="dial" viewBox="0 0 160 160" role="img" aria-label="Compass showing the shadow bearing">
+        <circle class="ring" cx="80" cy="80" r="66"/>
+        <text x="80" y="21">N</text><text x="143" y="84">E</text><text x="80" y="149">S</text><text x="17" y="84">W</text>
+        <g id="needle" style="transform-origin:80px 80px">
+          <line class="needle" x1="80" y1="80" x2="80" y2="30"/>
+          <circle class="tip" cx="80" cy="30" r="6"/>
+        </g>
+        <circle class="hub" cx="80" cy="80" r="5"/>
+      </svg>
+    </div>
+    <p class="hint small">The dial shows the direction the shadow points, measured clockwise from true north. Compare it with a road or building of known direction on a map.</p>
+  </section>
+
+  <section class="step" id="s6">
+    <span class="n">6</span>
+    <h2>Search maps and images</h2>
+    <div class="links">
+      <div>
+        <h3>Reverse image search</h3>
+        <p class="hint">These open in a new tab. Upload the same photo there yourself.</p>
+        <div class="btns">
+          <a class="btn alt" target="_blank" rel="noopener noreferrer" href="https://lens.google.com/">Google Lens</a>
+          <a class="btn alt" target="_blank" rel="noopener noreferrer" href="https://yandex.com/images/">Yandex Images</a>
+          <a class="btn alt" target="_blank" rel="noopener noreferrer" href="https://www.bing.com/visualsearch">Bing Visual Search</a>
+          <a class="btn alt" target="_blank" rel="noopener noreferrer" href="https://tineye.com/">TinEye</a>
+        </div>
+      </div>
+      <div>
+        <h3>Open the map</h3>
+        <p class="hint" id="mapHint">Pick a country in step 4, or read GPS in step 2, to get map links.</p>
+        <div class="btns" id="mapLinks"></div>
+      </div>
+      <div>
+        <h3>Find a feature on OpenStreetMap</h3>
+        <p class="hint">Builds an Overpass query for things you can see in the photo, such as a railway bridge or a water tower. Overpass Turbo runs it and draws the results on a map.</p>
+        <div class="grid2">
+          <div><label class="f" for="feat">What to find</label><select id="feat"></select></div>
+          <div><label class="f" for="place">Where (country, state or city)</label><input id="place" type="text" placeholder="e.g. Kerala"></div>
+        </div>
+        <div class="btns">
+          <button class="btn" type="button" id="qBtn">Build query</button>
+        </div>
+        <div id="qOut" hidden>
+          <pre class="q" id="qText"></pre>
+          <div class="btns" style="margin-top:8px">
+            <a class="btn" id="qLink" target="_blank" rel="noopener noreferrer" href="https://overpass-turbo.eu/">Run in Overpass Turbo</a>
+            <button class="btn alt" type="button" id="qCopy">Copy query</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="step" id="s7">
+    <span class="n">7</span>
+    <h2>Write down the evidence</h2>
+    <p class="hint">One line per finding, with where you found it (link, tool or screenshot). A finding without a source stays a guess.</p>
+    <label class="f" for="notes">Evidence log</label>
+    <textarea id="notes" placeholder="Left-hand traffic, seen in the lower right of the photo&#10;Devanagari sign at top left, read with Google Lens"></textarea>
+    <div class="grid2" style="margin-top:10px">
+      <div><label class="f" for="conf">Your confidence</label>
+        <select id="conf"><option>Low</option><option>Medium</option><option>High</option></select></div>
+      <div><label class="f" for="where">Best location so far</label><input id="where" type="text" placeholder="Place or coordinates"></div>
+    </div>
+    <div class="btns">
+      <button class="btn" type="button" id="repBtn">Build report</button>
+    </div>
+    <div id="repOut" hidden>
+      <pre class="report" id="report"></pre>
+      <div class="btns" style="margin-top:8px">
+        <button class="btn alt" type="button" id="repCopy">Copy report</button>
+        <button class="btn alt" type="button" id="repSave" hidden>Save as file</button>
+      </div>
+      <p class="status" id="repMsg"></p>
+    </div>
+  </section>
+
+  <div class="btns" style="margin-bottom:18px"><button class="btn alt" type="button" id="resetBtn">Start over</button></div>
+  <p class="foot">Responsible use: run this only on your own photos or ones you have permission to analyze. Do not use it to find people who have not agreed to be found. Clues narrow down a place; they do not prove it.</p>
+</main>
+
+<script>
+(function(){
+'use strict';
+var rad=Math.PI/180;
+function $(s){return document.querySelector(s)}
+function el(tag,props){
+  var e=document.createElement(tag);
+  props=props||{};
+  Object.keys(props).forEach(function(k){
+    var v=props[k];
+    if(k==='class')e.className=v;
+    else if(k==='text')e.textContent=v;
+    else if(k.slice(0,2)==='on')e.addEventListener(k.slice(2),v);
+    else e.setAttribute(k,v);
+  });
+  for(var i=2;i<arguments.length;i++){var c=arguments[i];if(c!==null&&c!==undefined&&c!==false)e.append(c)}
+  return e;
+}
+function pad(n){return String(n).padStart(2,'0')}
+function todayISO(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+
+/* ---------- Data ---------- */
+var SC={lat:'Latin letters',cyr:'Cyrillic',dev:'Devanagari',ara:'Arabic or Persian',han:'Chinese characters',kana:'Japanese kana',hang:'Korean Hangul',thai:'Thai',grk:'Greek',heb:'Hebrew',ben:'Bengali',ind:'Tamil, Telugu, Sinhala or other Indic'};
+var LS={tro:'Tropical and lush',des:'Desert or dry',tem:'Temperate',col:'Cold or snowy',mou:'High mountains'};
+// name, driving side, scripts, landscapes, approx centre lat, lon
+var RAW=[
+['India','L','dev lat ben ind ara','tro des tem mou',22,79],
+['Pakistan','L','ara lat','des mou tem',30,70],
+['Bangladesh','L','ben lat','tro',24,90],
+['Sri Lanka','L','ind lat','tro mou',7.5,80.7],
+['Nepal','L','dev lat','mou tem tro',28.3,84],
+['Thailand','L','thai lat','tro mou',15,101],
+['Malaysia','L','lat han','tro',4,102],
+['Indonesia','L','lat','tro mou',-2,117],
+['Singapore','L','lat han ind','tro',1.35,103.8],
+['Japan','L','han kana lat','tem col mou',36,138],
+['Hong Kong','L','han lat','tro tem',22.3,114.2],
+['United Kingdom','L','lat','tem mou',54,-2],
+['Ireland','L','lat','tem',53,-8],
+['Australia','L','lat','des tem tro',-25,134],
+['New Zealand','L','lat','tem mou',-41,174],
+['South Africa','L','lat','des tem',-29,24],
+['Kenya','L','lat','tro des mou',0,38],
+['Tanzania','L','lat','tro',-6,35],
+['Uganda','L','lat','tro',1,32],
+['Cyprus','L','grk lat','tem des',35,33],
+['Malta','L','lat','tem',35.9,14.4],
+['United States','R','lat','tem des col mou tro',39,-98],
+['Canada','R','lat','col tem mou',56,-106],
+['Mexico','R','lat','des tro tem mou',23,-102],
+['Brazil','R','lat','tro tem',-10,-52],
+['Argentina','R','lat','tem mou des col',-34,-64],
+['Chile','R','lat','des mou tem col',-33,-71],
+['Peru','R','lat','mou des tro',-10,-76],
+['Colombia','R','lat','tro mou',4,-73],
+['France','R','lat','tem mou',46.6,2.4],
+['Germany','R','lat','tem mou',51,10],
+['Spain','R','lat','tem des mou',40,-4],
+['Italy','R','lat','tem mou',42.8,12.5],
+['Portugal','R','lat','tem',39.5,-8],
+['Netherlands','R','lat','tem',52.2,5.5],
+['Switzerland','R','lat','mou tem',46.8,8.2],
+['Poland','R','lat','tem',52,19],
+['Greece','R','grk lat','tem mou',39,22],
+['Turkey','R','lat','tem mou des',39,35],
+['Russia','R','cyr lat','col tem mou',60,90],
+['Ukraine','R','cyr lat','tem',49,32],
+['Kazakhstan','R','cyr lat','des col mou',48,67],
+['Mongolia','R','cyr','col des mou',46.9,103.8],
+['Norway','R','lat','col mou tem',61,9],
+['Sweden','R','lat','col tem',62,15],
+['Finland','R','lat','col',64,26],
+['Iceland','R','lat','col mou',64.9,-18.6],
+['China','R','han lat','tem des mou tro col',35,103],
+['Taiwan','R','han lat','tro tem mou',23.7,121],
+['South Korea','R','hang lat','tem mou',36.5,127.8],
+['Vietnam','R','lat','tro mou',16,107],
+['Philippines','R','lat','tro',12.9,122],
+['United Arab Emirates','R','ara lat','des',24,54],
+['Saudi Arabia','R','ara lat','des',24,45],
+['Iran','R','ara','des mou tem',32,53],
+['Israel','R','heb ara lat','des tem',31.5,35],
+['Egypt','R','ara lat','des',26.8,30.8],
+['Morocco','R','ara lat','des mou tem',31.8,-7],
+['Nigeria','R','lat','tro',9,8]
+];
+var C=RAW.map(function(r){return{name:r[0],side:r[1],sc:r[2].split(' '),ls:r[3].split(' '),lat:r[4],lon:r[5]}});
+$('#total').textContent=C.length;
+
+var FEATS=[
+['Railway bridges','way["railway"]["bridge"="yes"]'],
+['Road bridges','way["highway"]["bridge"="yes"]'],
+['Water towers','nwr["man_made"="water_tower"]'],
+['Wind turbines','node["generator:source"="wind"]'],
+['Power pylons','node["power"="tower"]'],
+['Running tracks','nwr["leisure"="track"]["sport"="running"]'],
+['Stadiums','nwr["leisure"="stadium"]'],
+['Lighthouses','nwr["man_made"="lighthouse"]'],
+['Level crossings','node["railway"="level_crossing"]'],
+['Communication masts','node["man_made"="mast"]["tower:type"="communication"]']
+];
+
+/* ---------- State ---------- */
+function freshState(){
+  return{side:'?',scripts:[],land:[],ai:{},obs:[],caveat:'',sel:'',gps:null,showAll:false,
+    sun:{h:'',s:'',lat:'',lon:'',off:'',date:todayISO()},meta:null,fileName:'',hits:[],hitIdx:-1,sunInfo:''};
+}
+var S=freshState();
+var PHOTO=null;       // {dataUrl,name,w,h}
+var SAMPLE=null, IMG_OK=false, DOWNLOADS=null, CTL=null;
+
+/* ---------- Ranking ---------- */
+function weightOf(c){
+  var x=1;
+  if(S.side==='L'||S.side==='R') x*= c.side===S.side?10:0.02;
+  if(S.scripts.length){
+    var nl=S.scripts.filter(function(k){return k!=='lat'});
+    if(nl.length) x*= nl.some(function(k){return c.sc.indexOf(k)>-1})?4:0.1;
+    if(S.scripts.indexOf('lat')>-1) x*= c.sc.indexOf('lat')>-1?1.5:0.3;
+  }
+  if(S.land.length) x*= S.land.some(function(k){return c.ls.indexOf(k)>-1})?3:0.4;
+  if(S.ai[c.name]) x*= 1+S.ai[c.name]*9;
+  return x;
+}
+function rank(){
+  var w=C.map(weightOf), max=Math.max.apply(null,w), sum=w.reduce(function(a,b){return a+b},0);
+  var rows=C.map(function(c,i){return{c:c,w:w[i],p:w[i]/sum}}).sort(function(a,b){return b.w-a.w});
+  var left=w.filter(function(x){return x>=max*0.05}).length;
+  return{rows:rows,left:left,top:max};
+}
+function anyClue(){return S.side!=='?'||S.scripts.length>0||S.land.length>0||Object.keys(S.ai).length>0}
+
+var lastLeft=C.length;
+function renderRank(){
+  var R=rank();
+  var leftEl=$('#left');
+  leftEl.textContent=R.left;
+  if(R.left!==lastLeft){leftEl.classList.remove('bump');void leftEl.offsetWidth;leftEl.classList.add('bump');lastLeft=R.left}
+  var box=$('#rank'); box.textContent='';
+  var has=anyClue();
+  $('#rankHint').hidden=has;
+  $('#moreBtn').hidden=!has;
+  $('#moreBtn').textContent=S.showAll?'Show top 8 only':'Show all countries';
+  if(!has)return;
+  var n=S.showAll?R.rows.length:8;
+  R.rows.slice(0,n).forEach(function(r){
+    var sel=S.sel===r.c.name;
+    var b=el('button',{type:'button',class:'row'+(sel?' sel':''),'aria-pressed':String(sel),
+      onclick:function(){S.sel=sel?'':r.c.name;renderRank();renderMapLinks()}},
+      el('span',{class:'nm'},r.c.name,S.ai[r.c.name]?el('span',{class:'tag',text:'Claude lead'}):null),
+      el('span',{class:'track'},el('span',{class:'fill',style:'display:block;width:'+Math.max(2,r.w/R.top*100)+'%'})),
+      el('span',{class:'pc',text:(r.p*100).toFixed(r.p<0.1?1:0)+'%'}));
+    box.append(el('li',{},b));
+  });
+}
+
+/* ---------- Chips ---------- */
+function chip(label,pressed,onclick){
+  return el('button',{type:'button',class:'chip','aria-pressed':String(pressed),onclick:onclick,text:label});
+}
+function renderChips(){
+  var side=$('#sideChips'); side.textContent='';
+  [['L','Left'],['R','Right'],['?','Not visible']].forEach(function(o){
+    side.append(chip(o[1],S.side===o[0],function(){S.side=o[0];renderChips();renderRank()}));
+  });
+  var sc=$('#scriptChips'); sc.textContent='';
+  Object.keys(SC).forEach(function(k){
+    var on=S.scripts.indexOf(k)>-1;
+    sc.append(chip(SC[k],on,function(){toggle(S.scripts,k);renderChips();renderRank()}));
+  });
+  var lc=$('#landChips'); lc.textContent='';
+  Object.keys(LS).forEach(function(k){
+    var on=S.land.indexOf(k)>-1;
+    lc.append(chip(LS[k],on,function(){toggle(S.land,k);renderChips();renderRank()}));
+  });
+}
+function toggle(arr,k){var i=arr.indexOf(k);if(i>-1)arr.splice(i,1);else arr.push(k)}
+
+/* ---------- Photo + metadata ---------- */
+function fmtBytes(n){return n>1048576?(n/1048576).toFixed(1)+' MB':Math.round(n/1024)+' KB'}
+function onFile(file){
+  if(!file)return;
+  var keepSample=SAMPLE;
+  resetCase(true);
+  S.fileName=file.name;
+  var fr=new FileReader();
+  fr.onload=function(){
+    var img=$('#preview');
+    img.onload=function(){
+      PHOTO={dataUrl:fr.result,name:file.name,w:img.naturalWidth,h:img.naturalHeight};
+      $('#fileinfo').textContent=file.name+' ('+img.naturalWidth+' x '+img.naturalHeight+' px, '+fmtBytes(file.size)+')';
+      updateAsk();
+    };
+    img.onerror=function(){
+      PHOTO=null;
+      $('#fileinfo').textContent=file.name+' ('+fmtBytes(file.size)+'). This browser cannot show this format, so Claude cannot read it either. Metadata may still work; for the other steps, convert it to JPG or PNG.';
+      updateAsk();
+    };
+    img.src=fr.result;
+    $('#previewWrap').hidden=false;
+  };
+  fr.readAsDataURL(file);
+  readMeta(file);
+}
+async function readMeta(file){
+  $('#metaEmpty').hidden=true; $('#metaBox').hidden=false;
+  var list=$('#metaList'); list.textContent='';
+  var note=$('#metaNote'); note.textContent='';
+  var gl=$('#gpsLinks'); gl.textContent='';
+  if(typeof exifr==='undefined'){
+    note.append(el('div',{class:'note bad',text:'The metadata reader did not load. Reload the page and try again. You can still use the other steps.'}));
+    list.append(el('dt',{text:'Status'}),el('dd',{text:'Not read'}));
+    return;
+  }
+  var t=null,g=null;
+  try{t=await exifr.parse(file,{tiff:true,exif:true,gps:true,ifd0:true,reviveValues:false})}catch(e){}
+  try{g=await exifr.gps(file)}catch(e){}
+  t=t||{};
+  var rows=[];
+  var cam=[t.Make,t.Model].filter(Boolean).join(' ');
+  if(cam)rows.push(['Camera',cam]);
+  if(t.LensModel)rows.push(['Lens',t.LensModel]);
+  if(t.DateTimeOriginal)rows.push(['Taken',String(t.DateTimeOriginal).replace(/^(\d{4}):(\d{2}):(\d{2})/,'$1-$2-$3')+(t.OffsetTimeOriginal?' (UTC'+t.OffsetTimeOriginal+')':'')]);
+  if(t.FocalLengthIn35mmFormat)rows.push(['Focal length (35 mm equivalent)',t.FocalLengthIn35mmFormat+' mm']);
+  if(typeof t.GPSImgDirection==='number')rows.push(['Camera direction',Math.round(t.GPSImgDirection)+' degrees from north']);
+  if(typeof t.GPSAltitude==='number')rows.push(['Altitude',Math.round(t.GPSAltitude)+' m']);
+  if(t.Software)rows.push(['Software',String(t.Software)]);
+  var hasGps=g&&typeof g.latitude==='number'&&typeof g.longitude==='number';
+  if(hasGps){
+    S.gps={lat:g.latitude,lon:g.longitude};
+    rows.unshift(['GPS',g.latitude.toFixed(6)+', '+g.longitude.toFixed(6)]);
+    if(!S.sun.lat){S.sun.lat=g.latitude.toFixed(4);S.sun.lon=g.longitude.toFixed(4)}
+  }
+  if(t.OffsetTimeOriginal&&!S.sun.off){
+    var m=/^([+-])(\d{2}):(\d{2})$/.exec(String(t.OffsetTimeOriginal));
+    if(m)S.sun.off=String((m[1]==='-'?-1:1)*(parseInt(m[2],10)+parseInt(m[3],10)/60));
+  }
+  var dt=String(t.DateTimeOriginal||'').match(/^(\d{4}):(\d{2}):(\d{2})/);
+  if(dt)S.sun.date=dt[1]+'-'+dt[2]+'-'+dt[3];
+  S.meta=rows;
+  if(!rows.length){
+    list.append(el('dt',{text:'Result'}),el('dd',{text:'No metadata found'}));
+  }else{
+    rows.forEach(function(r){list.append(el('dt',{text:r[0]}),el('dd',{text:r[1]}))});
+  }
+  if(hasGps){
+    note.append(el('div',{class:'note',text:'This photo carries GPS coordinates. Verify them on the map, since GPS data can be edited or wrong.'}));
+  }else{
+    note.append(el('div',{class:'note',text:'No GPS in this photo. Most social apps and screenshots remove it. Continue with the visual clues below.'}));
+  }
+  if(t.Software&&/photoshop|lightroom|gimp|snapseed|canva|picsart|facetune|affinity|pixelmator/i.test(String(t.Software))){
+    note.append(el('div',{class:'note bad',text:'Editing software appears in the metadata ('+t.Software+'). The image or its details may have been changed.'}));
+  }
+  renderSunInputs(); renderMapLinks();
+}
+
+/* ---------- Claude clue reader ---------- */
+function setStatus(t){$('#askStatus').textContent=t}
+function updateAsk(){
+  var ok=!!PHOTO&&IMG_OK;
+  $('#askBtn').disabled=!ok;
+  if(!PHOTO){setStatus('Choose a photo first. This sends the photo to Claude using your own Claude account.')}
+  else if(!IMG_OK){setStatus('Reading photos with Claude is not available in this view. Use the manual clues below.')}
+  else{setStatus('Ready. This sends the photo to Claude using your own Claude account.')}
+}
+function toBlob(){
+  return new Promise(function(resolve,reject){
+    var img=new Image();
+    img.onload=function(){
+      var max=1280, sc=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+      var cv=document.createElement('canvas');
+      cv.width=Math.round(img.naturalWidth*sc); cv.height=Math.round(img.naturalHeight*sc);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      cv.toBlob(function(b){b?resolve(b):reject(new Error('blob'))},'image/jpeg',0.85);
+    };
+    img.onerror=function(){reject(new Error('img'))};
+    img.src=PHOTO.dataUrl;
+  });
+}
+function copyForError(code){
+  var m={
+    not_granted:'Claude access was not allowed for this page, so this step is hidden for now.',
+    sampling_disabled:'Claude is not available for this account.',
+    rate_limited:'Too many requests or your usage limit was reached. Wait a bit, then try again.',
+    session_expired:'Your session expired. Sign in again, then retry.',
+    image_rejected:'Claude could not use this image. Try a JPG or PNG.',
+    images_unavailable:'Sending images is not available in this view. Use the manual clues.',
+    refused:'Claude declined to analyze this photo. Use the manual clues instead.',
+    empty_completion:'Claude returned nothing. Try again.',
+    invalid_json:'Claude answered in an unreadable format. Try again.',
+    upstream_error:'The connection failed. Try again.'
+  };
+  return m[code]||'Something went wrong. Try again.';
+}
+var PROMPT=function(){
+  return 'You are helping with photo geolocation using only what is visible in the image. Do not identify people.\n'+
+  'Return JSON only, with no prose and no code fences, in exactly this shape:\n'+
+  '{"observations":[{"clue":"short description of something visible","suggests":"what it points to"}],'+
+  '"driving_side":"left" or "right" or "unknown",'+
+  '"scripts":[codes from: '+Object.keys(SC).join(', ')+'],'+
+  '"landscape":[codes from: '+Object.keys(LS).join(', ')+'],'+
+  '"countries":[{"name":"exactly one of the allowed names","confidence":0.0 to 1.0}],'+
+  '"caveat":"one sentence on what would confirm or break this guess"}\n'+
+  'Rules: list at most 8 observations and at most 5 countries. List a script only if text in it is readable in the photo. '+
+  'Use "unknown" for driving_side unless vehicles or the road layout make it clear. Keep confidences modest because these are guesses. '+
+  'Allowed country names: '+C.map(function(c){return c.name}).join(', ')+'.';
+};
+async function askClaude(){
+  if(!SAMPLE||!PHOTO)return;
+  var btn=$('#askBtn'), stop=$('#stopBtn');
+  btn.disabled=true; stop.hidden=false;
+  setStatus('Thinking...');
+  CTL=new AbortController();
+  try{
+    var blob=await toBlob();
+    var data=await SAMPLE.json(PROMPT(),{images:[blob],modelTier:'default',cache:false,signal:CTL.signal});
+    applyAI(data||{});
+    setStatus('Done. Check each lead yourself; these are guesses, not proof.');
+  }catch(e){
+    if(e&&e.code==='cancelled'){setStatus('Stopped.')}
+    else{
+      setStatus(copyForError(e&&e.code));
+      if(e&&(e.code==='not_granted'||e.code==='sampling_disabled'||e.code==='images_unavailable')){IMG_OK=false;btn.disabled=true}
+    }
+  }finally{
+    stop.hidden=true;
+    if(IMG_OK&&PHOTO)btn.disabled=false;
+  }
+}
+function applyAI(d){
+  if(d.driving_side==='left')S.side='L'; else if(d.driving_side==='right')S.side='R';
+  (d.scripts||[]).forEach(function(k){if(SC[k]&&S.scripts.indexOf(k)<0)S.scripts.push(k)});
+  (d.landscape||[]).forEach(function(k){if(LS[k]&&S.land.indexOf(k)<0)S.land.push(k)});
+  S.ai={};
+  (d.countries||[]).slice(0,5).forEach(function(x){
+    var c=C.filter(function(c){return c.name.toLowerCase()===String(x&&x.name).toLowerCase()})[0];
+    if(c){var v=+x.confidence;S.ai[c.name]=Math.min(1,Math.max(0,isNaN(v)?0.3:v))}
+  });
+  S.obs=(d.observations||[]).slice(0,8).map(function(o){return{clue:String((o&&o.clue)||'').slice(0,200),suggests:String((o&&o.suggests)||'').slice(0,200)}});
+  S.caveat=String(d.caveat||'').slice(0,300);
+  renderObs(); renderChips(); renderRank();
+}
+function renderObs(){
+  var ul=$('#obs'); ul.textContent='';
+  S.obs.forEach(function(o){
+    ul.append(el('li',{},o.clue,o.suggests?el('em',{text:' (points to: '+o.suggests+')'}):null));
+  });
+  var cv=$('#caveat');
+  cv.hidden=!S.caveat;
+  cv.textContent=S.caveat?('What would confirm or break this: '+S.caveat):'';
+}
+
+/* ---------- Sun and shadow ---------- */
+function sunPos(ms,lat,lon){
+  var d=ms/86400000+2440587.5-2451545.0;
+  var M=rad*(357.5291+0.98560028*d);
+  var Cc=rad*(1.9148*Math.sin(M)+0.02*Math.sin(2*M)+0.0003*Math.sin(3*M));
+  var L=M+Cc+rad*102.9372+Math.PI;
+  var e=rad*23.4397;
+  var dec=Math.asin(Math.sin(e)*Math.sin(L));
+  var ra=Math.atan2(Math.sin(L)*Math.cos(e),Math.cos(L));
+  var th=rad*(280.16+360.9856235*d)+rad*lon;
+  var H=th-ra, phi=rad*lat;
+  var alt=Math.asin(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H));
+  var az=Math.atan2(Math.sin(H),Math.cos(H)*Math.sin(phi)-Math.tan(dec)*Math.cos(phi));
+  return{alt:alt/rad,az:(((az/rad+180)%360)+360)%360};
+}
+var PTS=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+function pt(b){return PTS[Math.round(b/22.5)%16]}
+function hhmm(min){var t=Math.round(min);return pad(Math.floor(t/60)%24)+':'+pad(t%60)}
+function renderSunInputs(){
+  $('#sh').value=S.sun.h; $('#ss').value=S.sun.s; $('#sla').value=S.sun.lat; $('#slo').value=S.sun.lon;
+  $('#sd').value=S.sun.date; $('#so').value=S.sun.off;
+}
+function sunMsg(text,bad){
+  var m=$('#sunMsg'); m.textContent='';
+  if(text)m.append(el('div',{class:'note'+(bad?' bad':''),text:text}));
+}
+function setNeedle(b){$('#needle').style.transform='rotate('+b+'deg)'}
+function runSun(){
+  var hv=parseFloat(S.sun.h), sv=parseFloat(S.sun.s), la=parseFloat(S.sun.lat), lo=parseFloat(S.sun.lon), of=parseFloat(S.sun.off);
+  $('#sunOut').hidden=true;
+  if(!(hv>0)||!(sv>0)){sunMsg('Enter an object height and a shadow length greater than zero.',true);return}
+  if(isNaN(la)||isNaN(lo)||la<-90||la>90||lo<-180||lo>180){sunMsg('Enter a latitude between -90 and 90 and a longitude between -180 and 180.',true);return}
+  if(isNaN(of)){sunMsg('Enter the local time zone as hours from UTC, for example 5.5 for India.',true);return}
+  if(!S.sun.date){sunMsg('Pick the date of the photo.',true);return}
+  var target=Math.atan(hv/sv)/rad;
+  var p=S.sun.date.split('-').map(Number);
+  var base=Date.UTC(p[0],p[1]-1,p[2])-of*3600000;
+  var prev=null,hits=[],maxAlt=-90;
+  for(var m=0;m<=1440;m++){
+    var s=sunPos(base+m*60000,la,lo);
+    if(s.alt>maxAlt)maxAlt=s.alt;
+    if(prev!==null){
+      var a=prev-target,b=s.alt-target;
+      if((a<0&&b>=0)||(a>=0&&b<0)){
+        var mi=(m-1)+a/(a-b);
+        var at=sunPos(base+mi*60000,la,lo);
+        hits.push({min:mi,rising:b>a,sunAz:at.az,shadow:(at.az+180)%360});
+      }
+    }
+    prev=s.alt;
+  }
+  S.sunInfo='Sun elevation about '+target.toFixed(1)+' degrees (shadow ratio '+(sv/hv).toFixed(2)+' to 1)';
+  S.hits=hits; S.hitIdx=-1;
+  if(!hits.length){
+    sunMsg('The sun is never '+target.toFixed(1)+' degrees high at this latitude on this date (it peaks at '+maxAlt.toFixed(1)+' degrees). Re-check the measurements, the date, or the latitude.',true);
+    return;
+  }
+  sunMsg(S.sunInfo+'. A 5 percent error in the shadow length can move the time by 10 to 20 minutes.',false);
+  renderHits(); $('#sunOut').hidden=false;
+  pickHit(0);
+}
+function renderHits(){
+  var box=$('#hits'); box.textContent='';
+  S.hits.forEach(function(h,i){
+    box.append(el('button',{type:'button',class:'hit','aria-pressed':String(i===S.hitIdx),onclick:function(){pickHit(i)}},
+      (h.rising?'Morning, about ':'Afternoon, about '),el('b',{text:hhmm(h.min)}),
+      el('br'),'Shadow points '+Math.round(h.shadow)+' degrees ('+pt(h.shadow)+')'));
+  });
+}
+function pickHit(i){S.hitIdx=i;setNeedle(S.hits[i].shadow);renderHits()}
+
+/* ---------- Links ---------- */
+function renderMapLinks(){
+  var box=$('#mapLinks'); box.textContent='';
+  var hint=$('#mapHint');
+  var links=[];
+  if(S.gps){
+    var la=S.gps.lat.toFixed(6), lo=S.gps.lon.toFixed(6);
+    hint.textContent='Using the GPS from the photo metadata.';
+    links=[['Google Maps satellite','https://www.google.com/maps/@'+la+','+lo+',18z/data=!3m1!1e3'],
+           ['OpenStreetMap','https://www.openstreetmap.org/?mlat='+la+'&mlon='+lo+'#map=17/'+la+'/'+lo],
+           ['Mapillary street photos','https://www.mapillary.com/app/?lat='+la+'&lng='+lo+'&z=17']];
+  }else if(S.sel){
+    hint.textContent='Showing links for '+S.sel+'.';
+    var q=encodeURIComponent(S.sel);
+    links=[['Google Maps','https://www.google.com/maps/search/'+q],
+           ['OpenStreetMap','https://www.openstreetmap.org/search?query='+q]];
+  }else{
+    hint.textContent='Pick a country in step 4, or read GPS in step 2, to get map links.';
+  }
+  links.forEach(function(l){box.append(el('a',{class:'btn alt',target:'_blank',rel:'noopener noreferrer',href:l[1],text:l[0]}))});
+  if(S.sel&&!$('#place').value)$('#place').value=S.sel;
+}
+function buildQuery(){
+  var f=FEATS[parseInt($('#feat').value,10)];
+  var place=$('#place').value.trim()||S.sel;
+  if(!place){$('#qOut').hidden=false;$('#qText').textContent='Enter a place first, such as a country, state or city.';$('#qLink').hidden=true;$('#qCopy').hidden=true;return}
+  var q='[out:json][timeout:60];\n{{geocodeArea:'+place.replace(/[{}"\\]/g,'')+'}}->.a;\n(\n  '+f[1]+'(area.a);\n);\nout center 500;';
+  $('#qText').textContent=q;
+  $('#qLink').href='https://overpass-turbo.eu/?Q='+encodeURIComponent(q)+'&R';
+  $('#qLink').hidden=false; $('#qCopy').hidden=false; $('#qOut').hidden=false;
+}
+
+/* ---------- Report ---------- */
+function buildReport(){
+  var R=rank(), L=[];
+  L.push('PHOTO LOCATION REPORT');
+  L.push('Photo: '+(S.fileName||'(none)'));
+  L.push('');
+  L.push('Metadata');
+  if(S.meta&&S.meta.length)S.meta.forEach(function(r){L.push('- '+r[0]+': '+r[1])});
+  else L.push('- none read');
+  L.push('');
+  L.push('Clues you selected');
+  L.push('- Driving side: '+(S.side==='L'?'left':S.side==='R'?'right':'not noted'));
+  L.push('- Writing: '+(S.scripts.length?S.scripts.map(function(k){return SC[k]}).join(', '):'not noted'));
+  L.push('- Landscape: '+(S.land.length?S.land.map(function(k){return LS[k]}).join(', '):'not noted'));
+  if(S.obs.length){
+    L.push('');
+    L.push("Claude's reading of the photo (leads, not proof)");
+    S.obs.forEach(function(o){L.push('- '+o.clue+(o.suggests?' (points to: '+o.suggests+')':''))});
+    if(S.caveat)L.push('- Caveat: '+S.caveat);
+  }
+  if(anyClue()){
+    L.push('');
+    L.push('Shortlist ('+R.left+' of '+C.length+' countries still possible)');
+    R.rows.slice(0,5).forEach(function(r,i){L.push((i+1)+'. '+r.c.name+' - relative share '+(r.p*100).toFixed(1)+'%')});
+  }
+  if(S.sel)L.push('Working candidate: '+S.sel);
+  if(S.hits.length){
+    L.push('');
+    L.push('Shadow analysis: '+S.sunInfo);
+    S.hits.forEach(function(h){L.push('- '+(h.rising?'Morning':'Afternoon')+' about '+hhmm(h.min)+', shadow points '+Math.round(h.shadow)+' degrees ('+pt(h.shadow)+')')});
+  }
+  var notes=$('#notes').value.trim();
+  L.push('');
+  L.push('Evidence log');
+  L.push(notes?notes:'(nothing written yet)');
+  L.push('');
+  L.push('Best location so far: '+($('#where').value.trim()||'not stated'));
+  L.push('Confidence: '+$('#conf').value);
+  L.push('');
+  L.push('Note: clues narrow down a place; they do not prove it. Every finding above needs a source you can point to.');
+  return L.join('\n');
+}
+function copyText(text){
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    return navigator.clipboard.writeText(text).then(function(){return true},function(){return fallbackCopy(text)});
+  }
+  return Promise.resolve(fallbackCopy(text));
+}
+function fallbackCopy(text){
+  try{
+    var ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.append(ta); ta.focus(); ta.select();
+    var ok=document.execCommand('copy'); ta.remove(); return ok;
+  }catch(e){return false}
+}
+
+/* ---------- Reset ---------- */
+function resetCase(keepInputs){
+  S=freshState(); PHOTO=null; lastLeft=C.length;
+  $('#previewWrap').hidden=true; $('#preview').removeAttribute('src'); $('#fileinfo').textContent='';
+  $('#metaBox').hidden=true; $('#metaEmpty').hidden=false; $('#metaList').textContent=''; $('#metaNote').textContent=''; $('#gpsLinks').textContent='';
+  $('#obs').textContent=''; $('#caveat').hidden=true;
+  $('#sunOut').hidden=true; sunMsg('');
+  $('#qOut').hidden=true; $('#repOut').hidden=true; $('#repMsg').textContent='';
+  if(!keepInputs){$('#file').value='';$('#notes').value='';$('#where').value='';$('#conf').value='Low';$('#place').value=''}
+  renderSunInputs(); renderChips(); renderRank(); renderMapLinks(); updateAsk();
+}
+
+/* ---------- Wire up ---------- */
+function init(){
+  FEATS.forEach(function(f,i){$('#feat').append(el('option',{value:String(i),text:f[0]}))});
+  $('#file').addEventListener('change',function(e){onFile(e.target.files[0])});
+  $('#askBtn').addEventListener('click',askClaude);
+  $('#stopBtn').addEventListener('click',function(){if(CTL)CTL.abort()});
+  $('#moreBtn').addEventListener('click',function(){S.showAll=!S.showAll;renderRank()});
+  [['#sh','h'],['#ss','s'],['#sla','lat'],['#slo','lon'],['#sd','date'],['#so','off']].forEach(function(p){
+    $(p[0]).addEventListener('input',function(e){S.sun[p[1]]=e.target.value});
+  });
+  $('#sunBtn').addEventListener('click',runSun);
+  $('#centreBtn').addEventListener('click',function(){
+    var c=C.filter(function(c){return c.name===S.sel})[0];
+    if(!c){sunMsg('Pick a country in step 4 first.',true);return}
+    S.sun.lat=String(c.lat); S.sun.lon=String(c.lon); renderSunInputs();
+    sunMsg('Filled the approximate centre of '+c.name+'. Large countries span many latitudes, so refine it once you narrow down the region.',false);
+  });
+  $('#qBtn').addEventListener('click',buildQuery);
+  $('#qCopy').addEventListener('click',function(){copyText($('#qText').textContent).then(function(ok){$('#qCopy').textContent=ok?'Copied':'Copy failed'})});
+  $('#repBtn').addEventListener('click',function(){
+    $('#report').textContent=buildReport(); $('#repOut').hidden=false; $('#repMsg').textContent='';
+  });
+  $('#repCopy').addEventListener('click',function(){
+    copyText($('#report').textContent).then(function(ok){$('#repMsg').textContent=ok?'Report copied.':'Copy was blocked. Select the text above and copy it by hand.'});
+  });
+  $('#repSave').addEventListener('click',async function(){
+    try{
+      await DOWNLOADS.save({filename:'photo-location-report.txt',data:$('#report').textContent});
+      $('#repMsg').textContent='Saved.';
+    }catch(e){$('#repMsg').textContent='Save was cancelled or blocked. Use Copy report instead.'}
+  });
+  $('#resetBtn').addEventListener('click',function(){resetCase(false);window.scrollTo(0,0)});
+  resetCase(false);
+
+  if(window.claude&&typeof window.claude.use==='function'){
+    window.claude.use('sample').then(async function(s){
+      if(!s)return;
+      SAMPLE=s; $('#askBox').hidden=false;
+      try{var lim=await s.limits();IMG_OK=!!(lim&&lim.images)}catch(e){IMG_OK=false}
+      updateAsk();
+    }).catch(function(){});
+    window.claude.use('downloads').then(function(d){if(d){DOWNLOADS=d;$('#repSave').hidden=false}}).catch(function(){});
+  }
+}
+init();
+})();
+</script>
+</body>
+</html>
